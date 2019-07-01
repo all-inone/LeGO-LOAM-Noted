@@ -197,7 +197,7 @@ private:
     int frameCount;
 
 public:
-
+    
     FeatureAssociation():
         nh("~")
         {
@@ -1091,6 +1091,14 @@ public:
     void AccumulateRotation(float cx, float cy, float cz, float lx, float ly, float lz, 
                             float &ox, float &oy, float &oz)
     {
+      /*R_wl=[ccy 0 scy;0 1 0;-scy 0 ccy]*[1 0 0;0 ccx -scx;0 scx ccx]*[ccz -scz 0;scz ccz 0;0 0 1];（表示以world为参考坐标系）
+       *R_cl=[clz -slz 0;slz clz 0;0 0 1]*[1 0 0;0 clx -slx;0 slx clx]*[cly 0 sly;0 1 0;-sly 0 cly];（表示以current为参考坐标系）
+       *R_wc=R_wl*(R_cl).';
+       *最后求出来(-sin(rx))=cos(cx)*cos(cz)*sin(lx) - cos(lx)*cos(ly)*sin(cx) - cos(cx)*cos(lx)*sin(cz)*sin(ly)
+       *而程序中是(-sin(rx))= cos(lx)*cos(cx)*sin(ly)*sin(cz) - cos(cx)*cos(cz)*sin(lx) - cos(lx)*cos(ly)*sin(cx);（程序里的srx=(-sin(rx))）
+       *可以发现两个公式之间差了lx,ly,lz的负号，所以accumulateRotation()函数传入的是transform[0]~[2]的负值
+       *至于为什么-sinx等于上式，可以通过看R_wl，发现第二行第三列的元素为-sinx，因此两个旋转矩阵相乘后，对应位置上的元素就对应着新的pitch角的sin 值
+       */
         float srx = cos(lx)*cos(cx)*sin(ly)*sin(cz) - cos(cx)*cos(cz)*sin(lx) - cos(lx)*cos(ly)*sin(cx);
         ox = -asin(srx);
 
@@ -1846,6 +1854,8 @@ public:
         float y2 = cos(rx) * y1 - sin(rx) * z1;
         float z2 = sin(rx) * y1 + cos(rx) * z1;
 
+        //当前帧与上一帧的位移量通过rx,ry,rz的旋转，计算当前帧和初始帧的位移增量，叠加到transformSum[]中
+        //该增量计算得到的是last帧相对于current帧在世界坐标系下的位移,所以current相对于Last在世界坐标系下的位移为负值,所以是减去
         tx = transformSum[3] - (cos(ry) * x2 + sin(ry) * z2);
         ty = transformSum[4] - y2;
         tz = transformSum[5] - (-sin(ry) * x2 + cos(ry) * z2);

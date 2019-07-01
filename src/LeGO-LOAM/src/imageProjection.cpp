@@ -239,7 +239,7 @@ public:
             index = columnIdn  + rowIdn * Horizon_SCAN;
             fullCloud->points[index] = thisPoint;
 
-            fullInfoCloud->points[index].intensity = range;
+            fullInfoCloud->points[index].intensity = range;   //fullInfoCloud 包括点的range
         }
     }
 
