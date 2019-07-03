@@ -106,7 +106,7 @@ private:
     float imuVeloXCur, imuVeloYCur, imuVeloZCur;
     float imuShiftXCur, imuShiftYCur, imuShiftZCur;
 
-    //每次点云数据当前点相对于开始第一个点的畸变位移，速度
+    //每次点云数据当前点相对于开始第一个点的畸变位移(由于加速度造成的位移量)，速度
     float imuShiftFromStartXCur, imuShiftFromStartYCur, imuShiftFromStartZCur;
     float imuVeloFromStartXCur, imuVeloFromStartYCur, imuVeloFromStartZCur;
 
@@ -155,7 +155,7 @@ private:
     int laserCloudSurfLastNum;
 
     //角点以及对应两个直线点
-    int pointSelCornerInd[N_SCAN*Horizon_SCAN];
+    int   pointSelCornerInd[N_SCAN*Horizon_SCAN];
     float pointSearchCornerInd1[N_SCAN*Horizon_SCAN];
     float pointSearchCornerInd2[N_SCAN*Horizon_SCAN];
 
@@ -691,7 +691,7 @@ public:
                 } else {
                     // 速度投影到初始i=0时刻
                     VeloToStartIMU();
-					// 将点的坐标变换到初始i=0时刻
+					// 将点的坐标变换到每一帧点云初始i=0时刻
                     TransformToStartIMU(&point);
                 }
             }
@@ -1030,6 +1030,11 @@ public:
     void PluginIMURotation(float bcx, float bcy, float bcz, float blx, float bly, float blz, 
                            float alx, float aly, float alz, float &acx, float &acy, float &acz)
     {
+        //bcx bcy bcz 欧拉角构成 R_(bc)    blx bly blz 实际上传入的是imustart.构成R_(start)
+        //alx aly alz 构成R_(imulast)
+        //R=R(y)R(x)R(z)为旋转顺序
+        //R_(ac)=R_(bc)*R_(start).inverse*R_(last)
+    
         float sbcx = sin(bcx);
         float cbcx = cos(bcx);
         float sbcy = sin(bcy);
@@ -1091,7 +1096,7 @@ public:
     void AccumulateRotation(float cx, float cy, float cz, float lx, float ly, float lz, 
                             float &ox, float &oy, float &oz)
     {
-      /*R_wl=[ccy 0 scy;0 1 0;-scy 0 ccy]*[1 0 0;0 ccx -scx;0 scx ccx]*[ccz -scz 0;scz ccz 0;0 0 1];（表示以world为参考坐标系）
+       /*R_wl=[ccy 0 scy;0 1 0;-scy 0 ccy]*[1 0 0;0 ccx -scx;0 scx ccx]*[ccz -scz 0;scz ccz 0;0 0 1];（表示以world为参考坐标系）
        *R_cl=[clz -slz 0;slz clz 0;0 0 1]*[1 0 0;0 clx -slx;0 slx clx]*[cly 0 sly;0 1 0;-sly 0 cly];（表示以current为参考坐标系）
        *R_wc=R_wl*(R_cl).';
        *最后求出来(-sin(rx))=cos(cx)*cos(cz)*sin(lx) - cos(lx)*cos(ly)*sin(cx) - cos(cx)*cos(lx)*sin(cz)*sin(ly)
@@ -1873,6 +1878,13 @@ public:
     }
 
     void publishOdometry(){
+         /* rz,rx,ry分别对应着标准右手坐标系中的roll,pitch,yaw角,通过查看createQuaternionMsgFromRollPitchYaw()的函数定义可以发现.
+        * 当pitch和yaw角给负值后,四元数中的y和z会变成负值,x和w不受影响.由四元数定义可以知道,x,y,z是指旋转轴在三个轴上的投影,w影响
+        * 旋转角度,所以由createQuaternionMsgFromRollPitchYaw()计算得到四元数后,其在一般右手坐标系中的x,y,z分量对应到该应用场景下
+        * 的坐标系中,geoQuat.x对应实际坐标系下的z轴分量,geoQuat.y对应x轴分量,geoQuat.z对应实际的y轴分量,而由于rx和ry在计算四元数
+        * 时给的是负值,所以geoQuat.y和geoQuat.z取负值,这样就等于没变
+        */
+        
         geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(transformSum[2], -transformSum[0], -transformSum[1]);
 
         // rx,ry,rz转化为四元数发布
@@ -2018,9 +2030,6 @@ public:
         publishCloudsLast();   
     }
 };
-
-
-
 
 int main(int argc, char** argv)
 {

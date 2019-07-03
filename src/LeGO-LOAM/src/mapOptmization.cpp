@@ -62,13 +62,13 @@ private:
 
     ros::NodeHandle nh;
 
-    ros::Publisher pubLaserCloudSurround;  //发布局部的点云 ?? 可视化
-    ros::Publisher pubOdomAftMapped;
-    ros::Publisher pubKeyPoses;
+    ros::Publisher pubLaserCloudSurround;  //发布局部的点云  可视化(rviz里面基本就是全局地图)
+    ros::Publisher pubOdomAftMapped;  //发布map_odometry 2hz左右
+    ros::Publisher pubKeyPoses;    //发布轨迹点.
 
     ros::Publisher pubHistoryKeyFrames;
     ros::Publisher pubIcpKeyFrames;
-    ros::Publisher pubRecentKeyFrames;
+    ros::Publisher pubRecentKeyFrames;  //发布最近关键帧上的点云??...
 
     ros::Subscriber subLaserCloudCornerLast;  //订阅最新的laser边缘点
     ros::Subscriber subLaserCloudSurfLast;    //订阅最新的laser平面点
@@ -80,9 +80,9 @@ private:
     tf::StampedTransform aftMappedTrans;
     tf::TransformBroadcaster tfBroadcaster;
 
-    vector<pcl::PointCloud<PointType>::Ptr> cornerCloudKeyFrames;
-    vector<pcl::PointCloud<PointType>::Ptr> surfCloudKeyFrames;
-    vector<pcl::PointCloud<PointType>::Ptr> outlierCloudKeyFrames;
+    vector<pcl::PointCloud<PointType>::Ptr> cornerCloudKeyFrames;  //存储的是keyframe对应的边沿点点云向量
+    vector<pcl::PointCloud<PointType>::Ptr> surfCloudKeyFrames;     //存储的是keyframe对应的平面点云向量
+    vector<pcl::PointCloud<PointType>::Ptr> outlierCloudKeyFrames;  //存储的是keyframe对应的外点点云向量
 
     deque<pcl::PointCloud<PointType>::Ptr> recentCornerCloudKeyFrames;
     deque<pcl::PointCloud<PointType>::Ptr> recentSurfCloudKeyFrames;
@@ -97,7 +97,7 @@ private:
     PointType previousRobotPosPoint;
     PointType currentRobotPosPoint;   //当前机器人位置点
 
-    pcl::PointCloud<PointType>::Ptr cloudKeyPoses3D;    //机器人建图过程中的轨迹点
+    pcl::PointCloud<PointType>::Ptr cloudKeyPoses3D;    //机器人建图过程中的所有轨迹点
     pcl::PointCloud<PointTypePose>::Ptr cloudKeyPoses6D;
 
     
@@ -116,8 +116,8 @@ private:
     pcl::PointCloud<PointType>::Ptr laserCloudSurfTotalLast; //最新接收到的总的平面点  保存平面点和外点  ???????   
     pcl::PointCloud<PointType>::Ptr laserCloudSurfTotalLastDS;  //降采样downsampled corner featuer set from odoOptimization
   
-    pcl::PointCloud<PointType>::Ptr laserCloudOri;
-    pcl::PointCloud<PointType>::Ptr coeffSel;
+    pcl::PointCloud<PointType>::Ptr laserCloudOri;   //L-M优化原始点
+    pcl::PointCloud<PointType>::Ptr coeffSel;        //挑选的对应系数..
 
     pcl::PointCloud<PointType>::Ptr laserCloudCornerFromMap;  //地图中选择的边沿点 ?
     pcl::PointCloud<PointType>::Ptr laserCloudSurfFromMap;   //地图中选择的平面点  ?
@@ -134,17 +134,17 @@ private:
     
     pcl::PointCloud<PointType>::Ptr nearHistoryCornerKeyFrameCloud;  //邻近的历史关键帧的边沿点组成的点云  ?
     pcl::PointCloud<PointType>::Ptr nearHistoryCornerKeyFrameCloudDS;  //降采样
-    pcl::PointCloud<PointType>::Ptr nearHistorySurfKeyFrameCloud;  //邻近的历史关键帧的平面点组成的点云  ?
+    pcl::PointCloud<PointType>::Ptr nearHistorySurfKeyFrameCloud;  //回环检测的到的历史关键帧距离最近的帧前后25帧组成的平面点+边沿点点云
     pcl::PointCloud<PointType>::Ptr nearHistorySurfKeyFrameCloudDS; //降采样
 
-    pcl::PointCloud<PointType>::Ptr latestCornerKeyFrameCloud;
-    pcl::PointCloud<PointType>::Ptr latestSurfKeyFrameCloud;
-    pcl::PointCloud<PointType>::Ptr latestSurfKeyFrameCloudDS;
+    pcl::PointCloud<PointType>::Ptr latestCornerKeyFrameCloud;  //关键帧的边沿点云???   
+    pcl::PointCloud<PointType>::Ptr latestSurfKeyFrameCloud;    //关键帧的平面点点云???
+    pcl::PointCloud<PointType>::Ptr latestSurfKeyFrameCloudDS;  //关键帧的平面点点云降采样???
 
     pcl::KdTreeFLANN<PointType>::Ptr kdtreeGlobalMap;  //全局地图的kd-tree
-    pcl::PointCloud<PointType>::Ptr globalMapKeyPoses;
-    pcl::PointCloud<PointType>::Ptr globalMapKeyPosesDS;
-    pcl::PointCloud<PointType>::Ptr globalMapKeyFrames;
+    pcl::PointCloud<PointType>::Ptr globalMapKeyPoses;  //500米内的轨迹点
+    pcl::PointCloud<PointType>::Ptr globalMapKeyPosesDS; //全局轨迹点降采样后
+    pcl::PointCloud<PointType>::Ptr globalMapKeyFrames;     //全局关键帧
     pcl::PointCloud<PointType>::Ptr globalMapKeyFramesDS;  //降采样的全局关键帧的点云
 
     std::vector<int> pointSearchInd;   //搜索到的50米范围内的轨迹点索引
@@ -171,11 +171,12 @@ private:
 
 
     float transformLast[6];
-    float transformSum[6];   //记录laser_odometry
-    float transformIncre[6];
-    float transformTobeMapped[6];
-    float transformBefMapped[6];  //优化前的位姿
-    float transformAftMapped[6];    //优化后的位姿
+    float transformSum[6];         //odometry计算得到的到世界坐标系下的转移矩阵
+    float transformIncre[6];       //转移增量，只使用了后三个平移增量
+    float transformTobeMapped[6];  //以起始位置为原点的世界坐标系下的转换矩阵（猜测与调整的对象）
+    float transformBefMapped[6];   //存放mapping之前的Odometry计算的世界坐标系的转换矩阵（注：低频量，不一定与transformSum一样）
+    float transformAftMapped[6];   //存放mapping之后的经过mapping微调之后的转换矩阵
+
 
 
     int imuPointerFront;
@@ -185,7 +186,7 @@ private:
     float imuRoll[imuQueLength]; //接收到imu roll保存队列
     float imuPitch[imuQueLength]; //接收到imu pitch保存队列
 
-    std::mutex mtx;
+    std::mutex mtx;  
 
     double timeLastProcessing;   //进行mapping线程的最新时间
 
@@ -199,10 +200,10 @@ private:
     cv::Mat matD1;  //特征值
     cv::Mat matV1;  //特征向量
 
-    bool isDegenerate;
+    bool isDegenerate;   //是否出现退化标志
     cv::Mat matP;
 
-    int laserCloudCornerFromMapDSNum;
+    int laserCloudCornerFromMapDSNum;  
     int laserCloudSurfFromMapDSNum;
     int laserCloudCornerLastDSNum;  //最新接收到的laser边沿点降采样的点数量
     int laserCloudSurfLastDSNum;    //最新接收到的laser平面点降采样的点数量
@@ -216,8 +217,8 @@ private:
 
     bool aLoopIsClosed;  //回环结束标志
 
-    float cRoll, sRoll, cPitch, sPitch, cYaw, sYaw, tX, tY, tZ;
-    float ctRoll, stRoll, ctPitch, stPitch, ctYaw, stYaw, tInX, tInY, tInZ;
+    float cRoll, sRoll, cPitch, sPitch, cYaw, sYaw, tX, tY, tZ;   //将局部坐标系下的点转到世界坐标系下
+    float ctRoll, stRoll, ctPitch, stPitch, ctYaw, stYaw, tInX, tInY, tInZ;    //将点云转换到全局坐标系下? 
 
 public:
 
@@ -373,7 +374,9 @@ public:
     }
 
 
-    // 将坐标转移到世界坐标系下,得到可用于建图的Lidar坐标，即修改了transformTobeMapped的值   ???
+    //基于匀速模型，根据上次微调的结果和odometry这次与上次计算的结果，猜测一个新的世界坐标系的转换矩阵transformTobeMapped
+    //T_(tobe)=T_(wAft)*T_(wBef).inverse*T_(wsum)
+    //R=R(y)R(x)R(z)
     void transformAssociateToMap()
     {
         float x1 = cos(transformSum[1]) * (transformBefMapped[3] - transformSum[3]) 
@@ -385,7 +388,7 @@ public:
         float x2 = x1;
         float y2 = cos(transformSum[0]) * y1 + sin(transformSum[0]) * z1;
         float z2 = -sin(transformSum[0]) * y1 + cos(transformSum[0]) * z1;
-
+        //平移增量
         transformIncre[3] = cos(transformSum[2]) * x2 + sin(transformSum[2]) * y2;
         transformIncre[4] = -sin(transformSum[2]) * x2 + cos(transformSum[2]) * y2;
         transformIncre[5] = z2;
@@ -460,7 +463,7 @@ public:
         transformTobeMapped[5] = transformAftMapped[5] 
                                - (-sin(transformTobeMapped[1]) * x2 + cos(transformTobeMapped[1]) * z2);
     }
-
+    //记录odometry发送的转换矩阵与mapping之后的转换矩阵，下一帧点云会使用(有IMU的话会使用IMU进行补偿)
     void transformUpdate()
     {
 		if (imuPointerLast >= 0) {
@@ -487,8 +490,8 @@ public:
 		        imuRollLast = imuRoll[imuPointerFront] * ratioFront + imuRoll[imuPointerBack] * ratioBack;
 		        imuPitchLast = imuPitch[imuPointerFront] * ratioFront + imuPitch[imuPointerBack] * ratioBack;
 		    }
-
-		    transformTobeMapped[0] = 0.998 * transformTobeMapped[0] + 0.002 * imuPitchLast;
+            //imu稍微补偿俯仰角和翻滚角
+		    transformTobeMapped[0] = 0.998 * transformTobeMapped[0] + 0.002 * imuPitchLast;  //??更新比例这么小.是认为在这两个方向上没有太大的变化.
 		    transformTobeMapped[2] = 0.998 * transformTobeMapped[2] + 0.002 * imuRollLast;
 		  }
 
@@ -512,7 +515,7 @@ public:
         tY = transformTobeMapped[4];
         tZ = transformTobeMapped[5];
     }
-
+    //根据调整计算后的转移矩阵，将点注册到全局世界坐标系下
     void pointAssociateToMap(PointType const * const pi, PointType * const po)
     {
         // 主要进行坐标变换，将局部坐标转换到全局坐标中去	
@@ -610,10 +613,10 @@ public:
     }
 
     void laserCloudOutlierLastHandler(const sensor_msgs::PointCloud2ConstPtr& msg){
-        timeLaserCloudOutlierLast = msg->header.stamp.toSec();
+        timeLaserCloudOutlierLast = msg->header.stamp.toSec();   //记录接收外点点云时间戳
         laserCloudOutlierLast->clear();
         pcl::fromROSMsg(*msg, *laserCloudOutlierLast);
-        newLaserCloudOutlierLast = true;
+        newLaserCloudOutlierLast = true;  //设置接收标志位
     }
 
     void laserCloudCornerLastHandler(const sensor_msgs::PointCloud2ConstPtr& msg){
@@ -629,12 +632,12 @@ public:
         pcl::fromROSMsg(*msg, *laserCloudSurfLast);
         newLaserCloudSurfLast = true;
     }
-
+    
     void laserOdometryHandler(const nav_msgs::Odometry::ConstPtr& laserOdometry){
         timeLaserOdometry = laserOdometry->header.stamp.toSec();   //记录时间戳
         double roll, pitch, yaw;
-        geometry_msgs::Quaternion geoQuat = laserOdometry->pose.pose.orientation;
-        tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w)).getRPY(roll, pitch, yaw);
+        geometry_msgs::Quaternion geoQuat = laserOdometry->pose.pose.orientation;  //接收到的数据z朝前,x朝左,y朝上坐标系
+        tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w)).getRPY(roll, pitch, yaw);//不对调.算的roll就是朝左(x)
         transformSum[0] = -pitch;
         transformSum[1] = -yaw;
         transformSum[2] = roll;
@@ -655,13 +658,14 @@ public:
         imuPitch[imuPointerLast] = pitch;
     }
 
+    /* rz,rx,ry分别对应着标准右手坐标系中的roll,pitch,yaw角,通过查看createQuaternionMsgFromRollPitchYaw()的函数定义可以发现.
+        * 当pitch和yaw角给负值后,四元数中的y和z会变成负值,x和w不受影响.由四元数定义可以知道,x,y,z是指旋转轴在三个轴上的投影,w影响
+        * 旋转角度,所以由createQuaternionMsgFromRollPitchYaw()计算得到四元数后,其在一般右手坐标系中的x,y,z分量对应到该应用场景下
+        * 的坐标系中,geoQuat.x对应实际坐标系下的z轴分量,geoQuat.y对应x轴分量,geoQuat.z对应实际的y轴分量,而由于rx和ry在计算四元数
+        * 时给的是负值,所以geoQuat.y和geoQuat.z取负值,这样就等于没变
+        */
     void publishTF(){
-        /* rz,rx,ry分别对应着标准右手坐标系中的roll,pitch,yaw角,通过查看createQuaternionMsgFromRollPitchYaw()的函数定义可以发现.
-    * 当pitch和yaw角给负值后,四元数中的y和z会变成负值,x和w不受影响.由四元数定义可以知道,x,y,z是指旋转轴在三个轴上的投影,w影响
-    * 旋转角度,所以由createQuaternionMsgFromRollPitchYaw()计算得到四元数后,其在一般右手坐标系中的x,y,z分量对应到该应用场景下
-    * 的坐标系中,geoQuat.x对应实际坐标系下的z轴分量,geoQuat.y对应x轴分量,geoQuat.z对应实际的y轴分量,而由于rx和ry在计算四元数
-    * 时给的是负值,所以geoQuat.y和geoQuat.z取负值,这样就等于没变
-   */
+        
 
         geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw
                                   (transformAftMapped[2], -transformAftMapped[0], -transformAftMapped[1]);
@@ -720,7 +724,7 @@ public:
         if (pubLaserCloudSurround.getNumSubscribers() == 0)
             return;
 
-        if (cloudKeyPoses3D->points.empty() == true)
+        if (cloudKeyPoses3D->points.empty() == true)  //轨迹点
             return;
 
         std::vector<int> pointSearchIndGlobalMap;
@@ -729,7 +733,7 @@ public:
         mtx.lock();
         kdtreeGlobalMap->setInputCloud(cloudKeyPoses3D);
         // 通过KDTree进行最近邻搜索
-        kdtreeGlobalMap->radiusSearch(currentRobotPosPoint, globalMapVisualizationSearchRadius, pointSearchIndGlobalMap, pointSearchSqDisGlobalMap, 0);
+        kdtreeGlobalMap->radiusSearch(currentRobotPosPoint, globalMapVisualizationSearchRadius, pointSearchIndGlobalMap, pointSearchSqDisGlobalMap, 0);//可视化范围500米
         mtx.unlock();
 
         for (int i = 0; i < pointSearchIndGlobalMap.size(); ++i)
@@ -834,7 +838,7 @@ public:
         }
 
         // 下采样滤波减少数据量
-        downSizeFilterHistoryKeyFrames.setInputCloud(nearHistorySurfKeyFrameCloud);
+        downSizeFilterHistoryKeyFrames.setInputCloud(nearHistorySurfKeyFrameCloud);  //保存历史关键帧中距离当前帧距离最近帧并且时间大于30秒的.周围前后25帧的点云数据,用于进行回环匹配
         downSizeFilterHistoryKeyFrames.filter(*nearHistorySurfKeyFrameCloudDS);
 
         if (pubHistoryKeyFrames.getNumSubscribers() != 0){
@@ -1391,7 +1395,7 @@ public:
 
 
     void saveKeyFramesAndFactor(){
-
+        //计算完当前帧在地图位置后.保存当前帧的pose和提取关键帧.及其点云.
         currentRobotPosPoint.x = transformAftMapped[3];
         currentRobotPosPoint.y = transformAftMapped[4];
         currentRobotPosPoint.z = transformAftMapped[5];
@@ -1399,7 +1403,7 @@ public:
         bool saveThisKeyFrame = true;
         if (sqrt((previousRobotPosPoint.x-currentRobotPosPoint.x)*(previousRobotPosPoint.x-currentRobotPosPoint.x)
                 +(previousRobotPosPoint.y-currentRobotPosPoint.y)*(previousRobotPosPoint.y-currentRobotPosPoint.y)
-                +(previousRobotPosPoint.z-currentRobotPosPoint.z)*(previousRobotPosPoint.z-currentRobotPosPoint.z)) < 0.3){
+                +(previousRobotPosPoint.z-currentRobotPosPoint.z)*(previousRobotPosPoint.z-currentRobotPosPoint.z)) < 0.3){ //间隔0.3米保存keyframe
             saveThisKeyFrame = false;
         }
 
@@ -1411,9 +1415,9 @@ public:
         previousRobotPosPoint = currentRobotPosPoint;
 
         if (cloudKeyPoses3D->points.empty()){
-            // static Rot3 	RzRyRx (double x, double y, double z),Rotations around Z, Y, then X axes
-            // RzRyRx依次按照z(transformTobeMapped[2])，y(transformTobeMapped[0])，x(transformTobeMapped[1])坐标轴旋转
-            // Point3 (double x, double y, double z)  Construct from x(transformTobeMapped[5]), y(transformTobeMapped[3]), and z(transformTobeMapped[4]) coordinates. 
+            // static Rot3 	RzRyRx (double y, double x, double z),Rotations around Z, x, then y axes
+            // RzRyRx依次按照z(transformTobeMapped[2])，x(transformTobeMapped[0])，y(transformTobeMapped[1])坐标轴旋转
+            // Point3 (double x, double y, double z)  Construct from z(transformTobeMapped[5]), x(transformTobeMapped[3]), and y(transformTobeMapped[4]) coordinates. 
             // Pose3 (const Rot3 &R, const Point3 &t) Construct from R,t. 从旋转和平移构造姿态
             // NonlinearFactorGraph增加一个PriorFactor因子
             gtSAMgraph.add(PriorFactor<Pose3>(0, Pose3(Rot3::RzRyRx(transformTobeMapped[2], transformTobeMapped[0], transformTobeMapped[1]),

@@ -47,13 +47,13 @@ private:
 
     pcl::PointCloud<PointType>::Ptr laserCloudIn;
 
-    pcl::PointCloud<PointType>::Ptr fullCloud;
-    pcl::PointCloud<PointType>::Ptr fullInfoCloud;
+    pcl::PointCloud<PointType>::Ptr fullCloud;   //强度值为点所在行号和列号
+    pcl::PointCloud<PointType>::Ptr fullInfoCloud;  //强度值保存range
 
     pcl::PointCloud<PointType>::Ptr groundCloud;
     pcl::PointCloud<PointType>::Ptr segmentedCloud;
-    pcl::PointCloud<PointType>::Ptr segmentedCloudPure;
-    pcl::PointCloud<PointType>::Ptr outlierCloud;
+    pcl::PointCloud<PointType>::Ptr segmentedCloudPure;  //带有聚类标签.属于哪一个聚类
+    pcl::PointCloud<PointType>::Ptr outlierCloud;    //外点
 
     PointType nanPoint;
 
