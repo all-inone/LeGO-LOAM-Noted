@@ -691,7 +691,7 @@ public:
                 } else {
                     // 速度投影到初始i=0时刻
                     VeloToStartIMU();
-					// 将点的坐标变换到每一帧点云初始i=0时刻
+					// 将点的坐标变换到每一帧初始i=0时刻
                     TransformToStartIMU(&point);
                 }
             }
