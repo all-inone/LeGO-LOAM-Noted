@@ -1,0 +1,4 @@
+src/cmake-build-*
+.idea
+build
+devel

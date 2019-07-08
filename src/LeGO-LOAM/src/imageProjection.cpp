@@ -47,13 +47,13 @@ private:
 
     pcl::PointCloud<PointType>::Ptr laserCloudIn;
 
-    pcl::PointCloud<PointType>::Ptr fullCloud;
-    pcl::PointCloud<PointType>::Ptr fullInfoCloud;
+    pcl::PointCloud<PointType>::Ptr fullCloud;   //强度值为点所在行号和列号
+    pcl::PointCloud<PointType>::Ptr fullInfoCloud;  //强度值保存range
 
     pcl::PointCloud<PointType>::Ptr groundCloud;
     pcl::PointCloud<PointType>::Ptr segmentedCloud;
-    pcl::PointCloud<PointType>::Ptr segmentedCloudPure;
-    pcl::PointCloud<PointType>::Ptr outlierCloud;
+    pcl::PointCloud<PointType>::Ptr segmentedCloudPure;  //带有聚类标签.属于哪一个聚类
+    pcl::PointCloud<PointType>::Ptr outlierCloud;    //外点
 
     PointType nanPoint;
 
@@ -257,7 +257,7 @@ public:
             index = columnIdn + rowIdn*Horizon_SCAN;
             fullCloud->points[index] = thisPoint;
 
-            fullInfoCloud->points[index].intensity = range;
+            fullInfoCloud->points[index].intensity = range;   //fullInfoCloud 包括点的range
         }
     }
 
@@ -284,7 +284,7 @@ public:
 
                 // 由上下两线之间点的XYZ位置得到两线之间的俯仰角
                 // 如果俯仰角在10度以内，则判定(i,j)为地面点,groundMat[i][j]=1
-                // 否则，则不是地面点，进行后续操作
+                // 否则，则不是地面点，初始化为0，进行后续操作
                 diffX = fullCloud->points[upperInd].x - fullCloud->points[lowerInd].x;
                 diffY = fullCloud->points[upperInd].y - fullCloud->points[lowerInd].y;
                 diffZ = fullCloud->points[upperInd].z - fullCloud->points[lowerInd].z;
@@ -434,7 +434,6 @@ public:
             // 遍历点[fromIndX,fromIndY]边上的四个邻点
             for (auto iter = neighborIterator.begin(); iter != neighborIterator.end(); ++iter)
             {
-
                 thisIndX = fromIndX + (*iter).first;
                 thisIndY = fromIndY + (*iter).second;
 
@@ -447,8 +446,8 @@ public:
                     thisIndY = 0;
 
                 // 如果点[thisIndX,thisIndY]已经标记过
-                // labelMat中，-1代表地面点，0代表未进行标记过，其余为其他的标记
-                // 如果当前的邻点已经标记过，则跳过该点。不是地面点为什么跳过???
+                // labelMat中，-1代表地面点或者无深度点，0代表未进行标记过，其余为其他的标记
+                // 如果当前的邻点已经标记过，则跳过该点。
                 // 如果labelMat已经标记为正整数，则已经聚类完成，不需要再次对该点聚类
                 if (labelMat.at<int>(thisIndX, thisIndY) != 0)
                     continue;
@@ -461,7 +460,7 @@ public:
                 // alpha代表角度分辨率，
                 // X方向上角度分辨率是segmentAlphaX(rad)
                 // Y方向上角度分辨率是segmentAlphaY(rad)
-                if ((*iter).first == 0)
+                if ((*iter).first == 0)//水平方向
                     alpha = segmentAlphaX;
                 else
                     alpha = segmentAlphaY;
@@ -489,7 +488,8 @@ public:
             }
         }
 
-
+        //下面的操作是为了分辨是否是有效聚类，如果是则增加labelCount，标记下一块
+        //如果不是，就标记为outliers点
         bool feasibleSegment = false;
 
         // 如果聚类超过30个点，直接标记为一个可用聚类，labelCount需要递增
