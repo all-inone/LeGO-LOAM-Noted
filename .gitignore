@@ -1,5 +1,12 @@
+<<<<<<< HEAD
 /.vscode
 /build
 /devel
 .catkin_workspace
 
+=======
+src/cmake-build-*
+.idea
+build
+devel
+>>>>>>> cdf976347e42d4483850af88d1ada8f59d121ef9
