@@ -377,7 +377,7 @@ public:
 
 
     //基于匀速模型，根据上次微调的结果和odometry这次与上次计算的结果，猜测一个新的世界坐标系的转换矩阵transformTobeMapped
-    //T_(tobe)=T_(wAft)*T_(wBef).inverse*T_(sum)
+    //T_(tobe)=T_(wAft)*T_(wBef).inverse*T_(wsum)
     //R=R(y)R(x)R(z)
     void transformAssociateToMap()
     {
@@ -948,7 +948,8 @@ public:
             cloudMsgTemp.header.frame_id = "/camera_init";
             pubIcpKeyFrames.publish(cloudMsgTemp);
         }
-
+        //ICP匹配最终得到T为将Source点云转换到Target点云的T.这两个点云都在世界坐标系下.然后假设Source在错误的世界坐标系下.为Pw',Target在正确的世界坐标系下.为Pw.然后最终获得Tww'的矩阵.
+        //取出当前的pose为Tw'L.左乘Tww'变化到TwL.
         float x, y, z, roll, pitch, yaw;
         Eigen::Affine3f correctionCameraFrame;
         correctionCameraFrame = icp.getFinalTransformation();  //获取icp结果
@@ -956,6 +957,7 @@ public:
         pcl::getTranslationAndEulerAngles(correctionCameraFrame, x, y, z, roll, pitch, yaw);
         Eigen::Affine3f correctionLidarFrame = pcl::getTransformation(z, x, y, yaw, roll, pitch);
         Eigen::Affine3f tWrong = pclPointToAffine3fCameraToLidar(cloudKeyPoses6D->points[latestFrameIDLoopCloure]);
+        //取出当前的pose为Tw'L.左乘Tww'变化到TwL.
         Eigen::Affine3f tCorrect = correctionLidarFrame*tWrong;
         pcl::getTranslationAndEulerAngles(tCorrect, x, y, z, roll, pitch, yaw);
         gtsam::Pose3 poseFrom = Pose3(Rot3::RzRyRx(roll, pitch, yaw), Point3(x, y, z));
@@ -1009,7 +1011,7 @@ public:
                     PointTypePose thisTransformation = cloudKeyPoses6D->points[thisKeyInd];  //Poses6D保存的历史的lidar位姿.这个包含姿态信息.
                     updateTransformPointCloudSinCos(&thisTransformation);
                     // 依据上面得到的变换thisTransformation，对cornerCloudKeyFrames，surfCloudKeyFrames，surfCloudKeyFrames
-                    // 进行坐标变换,后加入到用于回环检测的点云中
+                    // 进行坐标变换
                     recentCornerCloudKeyFrames.push_front(transformPointCloud(cornerCloudKeyFrames[thisKeyInd])); //从
                     recentSurfCloudKeyFrames.push_front(transformPointCloud(surfCloudKeyFrames[thisKeyInd]));
                     recentOutlierCloudKeyFrames.push_front(transformPointCloud(outlierCloudKeyFrames[thisKeyInd]));
@@ -1634,12 +1636,12 @@ public:
         pcl::copyPointCloud(*laserCloudCornerLastDS, *thisCornerKeyFrame);
         pcl::copyPointCloud(*laserCloudSurfLastDS, *thisSurfKeyFrame);
         pcl::copyPointCloud(*laserCloudOutlierLastDS, *thisOutlierKeyFrame);
-    }
-<<<<<<< HEAD
-       
-=======
 
->>>>>>> cdf976347e42d4483850af88d1ada8f59d121ef9
+        cornerCloudKeyFrames.push_back(thisCornerKeyFrame);
+        surfCloudKeyFrames.push_back(thisSurfKeyFrame);
+        outlierCloudKeyFrames.push_back(thisOutlierKeyFrame);
+    }
+       
 
     void correctPoses()
     {
@@ -1728,7 +1730,7 @@ int main(int argc, char **argv)
     ROS_INFO("\033[1;32m---->\033[0m Map Optimization Started.");
 
     mapOptimization MO;
-
+    
     // std::thread 构造函数，将MO作为参数传入构造的线程中使用
     // 进行闭环检测与闭环的功能
     std::thread loopthread(&mapOptimization::loopClosureThread, &MO);
